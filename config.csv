@@ -1,0 +1,16 @@
+name,image,text,video,auto,brightness
+calculator,x,x,,,4
+chatgpt,x,x,,,5
+cursor,x,x,,,2
+electron,x,x,,,-1
+finder,x,x,,,9
+https://www.youtube.com/,,,,,1
+https://www.youtube.com/watch,,,x,,2
+https://x.com,x,x,,,6
+notes,x,x,,,-1
+notion,x,x,,,7
+soffice,x,x,,,6
+sublime_text,x,x,,,4
+system settings,,,,,7
+terminal,x,x,,,4
+typora,x,x,,,-1
