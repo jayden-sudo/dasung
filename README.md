@@ -12,8 +12,8 @@ This program automatically adjusts the display mode and brightness of your Dasun
 
 ## Demo
 
-![Demo](images/demo.gif)
-
+![Demo 1](images/1.gif)
+![Demo 2](images/2.gif)
 ## Features
 
 - Automatic mode switching between:
