@@ -27,7 +27,7 @@ on checkFrontApp()
 	if currentData is not equal to lastData then
 		set lastData to currentData
 		log currentData
-        set curlCommand to "curl -X POST -H \"Content-Type: text/plain\" --data \"" & currentData & "\" http://127.0.0.1:9482"
+        set curlCommand to "curl -X POST -H \"Content-Type: text/plain\" --data \"" & currentData & "\" http://{{listenPort}}"
         -- log curlCommand
         try
             set serverResponse to do shell script curlCommand

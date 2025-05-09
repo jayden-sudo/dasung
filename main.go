@@ -1,18 +1,28 @@
 package main
 
 import (
+	"bufio"
 	"dasung_auto/dasung"
 	"dasung_auto/tinydb"
+	"embed"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
 
-var serialPort string = "/dev/cu.usbserial-14410" // Change this to your port
+//go:embed scripts/*
+var embedFiles embed.FS
+
+const (
+	paperLikeClientPath        = "/Applications/PaperLikeClient.app/Contents/MacOS/PaperLikeClient"
+	listenPort          string = "127.0.0.1:9482"
+)
 
 var d *dasung.DasungControl
 var currentMode dasung.Mode = dasung.MODE_AUTO
@@ -106,27 +116,90 @@ func cleanup() {
 	d.StopMonitoring()
 }
 
-func main() {
-	log.Println("Starting application...")
-
-	cmd := exec.Command("pgrep", "osascript")
-	_, err := cmd.CombinedOutput()
-	if err == nil {
-		exec.Command("pkill", "osascript").Run()
-		//log.Fatal("osascript process already exists")
+func startAppleScript() {
+	content, err := embedFiles.ReadFile("scripts/frontapp.applescript")
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	tinydb.GetInstance()
-
-	d, err = dasung.NewDasungControl(serialPort)
+	content = []byte(strings.Replace(string(content), "{{listenPort}}", listenPort, -1))
+	tmpDir := os.TempDir()
+	filePath := filepath.Join(tmpDir, "frontapp.applescript")
+	err = os.WriteFile(filePath, content, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	for {
+		cmd := exec.Command("pgrep", "osascript")
+		_, err = cmd.CombinedOutput()
+		if err == nil {
+			fmt.Println("kill osascript")
+			exec.Command("pkill", "osascript").Run()
+		} else {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	go func() {
+		cmd := exec.Command("osascript", filePath)
+		cmd.Run()
+	}()
+}
+
+func getSerialPort() string {
+	if _, err := os.Stat(paperLikeClientPath); os.IsNotExist(err) {
+		log.Fatal("PaperLikeClient not found, please install the program in bin/Paperlike+software+for+mac+user+202409.pkg")
+	}
+	cmd := exec.Command(paperLikeClientPath)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	scanner := bufio.NewScanner(stdout)
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			log.Printf("Command finished with error: %v", err)
+		}
+	}()
+	port := ""
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Serial port xxxx was opened
+		if strings.Contains(line, "Serial port ") && strings.Contains(line, " was opened") {
+			parts := strings.Split(line, "Serial port ")
+			if len(parts) > 1 {
+				portPart := strings.Split(parts[1], " was opened")[0]
+				port = "/dev/cu." + strings.TrimSpace(portPart)
+				break
+			}
+		}
+	}
+	cmd.Process.Kill()
+	return port
+}
+
+func main() {
+	log.Println("Starting application...")
+
+	port := getSerialPort()
+	log.Printf("Using serial port: %s", port)
+
+	tinydb.GetInstance()
+	var err error
+	d, err = dasung.NewDasungControl(port)
+	if err != nil {
+		log.Fatal(err)
+	}
 	d.ClearScreen()
+	time.Sleep(500 * time.Millisecond)
 
 	defer cleanup()
-	time.Sleep(1 * time.Second)
+	startAppleScript()
+
 	d.StartMonitoring(func(ctrType dasung.CtrType, brightness int, mode dasung.Mode) {
 		fmt.Printf("ctrType: %s, brightness: %d, mode: %s\n", ctrType, brightness, mode)
 		if ctrType == dasung.CtrType_SetBrightness {
@@ -135,11 +208,6 @@ func main() {
 			}
 		}
 	})
-
-	go func() {
-		cmd := exec.Command("osascript", "frontapp.applescript")
-		cmd.Run()
-	}()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -153,14 +221,14 @@ func main() {
 		}
 		defer r.Body.Close()
 
-		log.Printf("Received POST request: %s", string(body))
+		// log.Printf("Received POST request: %s", string(body))
 		handleRequest(string(body))
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
-	log.Println("Starting HTTP server on 127.0.0.1:9482")
-	if err := http.ListenAndServe("127.0.0.1:9482", nil); err != nil {
+	log.Println("Starting HTTP server on ", listenPort)
+	if err := http.ListenAndServe(listenPort, nil); err != nil {
 		log.Fatal(err)
 	}
 }

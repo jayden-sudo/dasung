@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -22,8 +23,9 @@ type TinyData struct {
 }
 
 type tinyDB struct {
-	mu   sync.Mutex
-	data []*TinyData
+	mu         sync.Mutex
+	data       []*TinyData
+	configPath string
 }
 
 var (
@@ -33,7 +35,28 @@ var (
 
 func GetInstance() *tinyDB {
 	once.Do(func() {
-		file, err := os.Open(fileName)
+		ex, err := os.Executable()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		instance = &tinyDB{
+			mu:         sync.Mutex{},
+			data:       nil,
+			configPath: filepath.Join(filepath.Dir(ex), "config.csv"),
+		}
+		fmt.Printf("configPath: %s\n", instance.configPath)
+
+		if _, err := os.Stat(instance.configPath); os.IsNotExist(err) {
+			file, err := os.Create(instance.configPath)
+			if err != nil {
+				log.Fatal(err)
+			}
+			file.WriteString("name,image,text,video,auto,brightness\n")
+			file.Close()
+		}
+
+		file, err := os.Open(instance.configPath)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -57,11 +80,6 @@ func GetInstance() *tinyDB {
 			[4] = "auto"
 			[5] = "brightness"
 		*/
-
-		instance = &tinyDB{
-			mu:   sync.Mutex{},
-			data: nil,
-		}
 
 		instance.data = make([]*TinyData, 0)
 
@@ -100,10 +118,8 @@ func GetInstance() *tinyDB {
 	return instance
 }
 
-var fileName = "config.csv"
-
 func (db *tinyDB) GetByName(name string) *TinyData {
-	if strings.HasPrefix(name, "https://") || strings.HasPrefix(name, "http://") {
+	if strings.HasPrefix(name, "https://") || strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "file://") || strings.HasPrefix(name, "chrome://") || strings.HasPrefix(name, "chrome-extension://") {
 		url, err := url.Parse(name)
 		if err != nil {
 			log.Fatal(err)
@@ -152,12 +168,12 @@ func (db *tinyDB) UpdateBrightness(name string, brightness int) {
 		data.Brightness = brightness
 		fmt.Printf("Update brightness: %d for %s\n", brightness, name)
 	}
-	db.Save()
+	db.save()
 }
 
-func (db *tinyDB) Save() {
+func (db *tinyDB) save() {
 
-	file, err := os.Create(fileName)
+	file, err := os.Create(db.configPath)
 	if err != nil {
 		log.Fatal(err)
 	}

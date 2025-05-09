@@ -33,37 +33,21 @@ This program automatically adjusts the display mode and brightness of your Dasun
 
 ## Usage
 
-1. Configure the serial port:
-   - Open `main.go`
-   - Find the `serialPort` variable
-   - Change its value to match your system's configuration
-   ```go
-   var serialPort string = "/dev/cu.usbserial-13410" // Change this to your port
-   ```
+1. Install the required software:
+   - Install Paperlike software from: `bin/Paperlike+software+for+mac+user+202409.pkg`
 
 2. Configure application settings (optional):
    - Open and modify the `config.csv` file
    
-3. Run the program:
-```bash
-go run .
-```
+3. Run the program: `dasung_auto-darwin-arm64`
 
 4. The program will:
    - Start an HTTP server on 127.0.0.1:9482
    - Monitor active applications
    - Automatically adjust display settings
 
-## Configuration
-
-The program comes with pre-configured settings for common applications. You can modify the configuration in `config.go` to:
-- Add new applications
-- Change display modes
-- Adjust brightness levels
-- Add URL-based rules
-
 ## Requirements
 
-- macOS
+- macOS arm
 - Dasung 25.3" Color E-ink Monitor
-- Go 1.23 or later
+- PaperLikeClient for macOS
