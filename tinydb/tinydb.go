@@ -118,8 +118,18 @@ func GetInstance() *tinyDB {
 	return instance
 }
 
-func (db *tinyDB) GetByName(name string) *TinyData {
+func isURI(name string) bool {
 	if strings.HasPrefix(name, "https://") || strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "file://") || strings.HasPrefix(name, "chrome://") || strings.HasPrefix(name, "chrome-extension://") {
+		return true
+	}
+	return false
+}
+
+func (db *tinyDB) GetByName(name string) *TinyData {
+	name = strings.TrimSpace(strings.ToLower(name))
+
+	hostname := ""
+	if isURI(name) {
 		url, err := url.Parse(name)
 		if err != nil {
 			log.Fatal(err)
@@ -127,9 +137,8 @@ func (db *tinyDB) GetByName(name string) *TinyData {
 		url.RawQuery = ""
 		url.Fragment = ""
 		name = url.String()
+		hostname = url.Scheme + "://" + url.Hostname()
 	}
-
-	name = strings.TrimSpace(strings.ToLower(name))
 
 	for _, data := range db.data {
 		if data.Name == name {
@@ -139,6 +148,13 @@ func (db *tinyDB) GetByName(name string) *TinyData {
 	for _, data := range db.data {
 		if strings.Contains(name, data.Name) {
 			return data
+		}
+	}
+	if hostname != "" {
+		for _, data := range db.data {
+			if strings.Contains(data.Name, hostname) {
+				return data
+			}
 		}
 	}
 
@@ -152,6 +168,17 @@ func (db *tinyDB) UpdateBrightness(name string, brightness int) {
 	data := db.GetByName(name)
 	if data == nil {
 		fmt.Printf("Add new brightness: %d for %s\n", brightness, name)
+		name = strings.TrimSpace(strings.ToLower(name))
+		if isURI(name) {
+			url, err := url.Parse(name)
+			if err != nil {
+				log.Fatal(err)
+			}
+			url.RawQuery = ""
+			url.Fragment = ""
+			name = url.Scheme + "://" + url.Hostname()
+		}
+
 		db.data = append(db.data, &TinyData{
 			Name:       name,
 			Mode_Image: false,

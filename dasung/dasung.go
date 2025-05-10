@@ -1,7 +1,6 @@
 package dasung
 
 import (
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -125,7 +124,7 @@ func (d *DasungControl) Write(command []byte) {
 	defer d.mu.Unlock()
 	_, err := d.s.Write(command)
 	if err != nil {
-		fmt.Printf("Error writing to serial port: %v\n", err)
+		log.Fatalf("Error writing to serial port: %v", err)
 	}
 }
 
